@@ -1,9 +1,28 @@
+import { api } from "/js/fetchApi.js";
+const socket = io("http://localhost:8000");
 const newRoomForm = document.getElementById("new-room-form");
 
 newRoomForm.addEventListener("submit", e => {
-    e.preventDefault();
-    const newRoomInput = document.getElementById('new-room-input');
-    console.log(newRoomInput.value);
+  e.preventDefault();
+  const newRoomInput = document.getElementById("new-room-input");
+  api("create-new-room", "post", { room: newRoomInput.value })
+    .then(data => {
+      console.log(data);
+    })
+    .catch(e => {
+      console.error(e);
+    });
+});
+
+function loadRooms() {
+  api("rooms-list", "get").then(data => {
+    createRoomList(data);
+  });
+}
+loadRooms();
+
+socket.on('room-updated', () => {
+    loadRooms();
 });
 
 function createRoomList(data) {
