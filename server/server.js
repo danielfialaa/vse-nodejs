@@ -15,15 +15,24 @@ app.use(express.static(__dirname + '/views'));
 app.get("/", (req,res) => {
     res.render('index.ejs');
 });
-app.get("/chat", (req,res) => {
-    res.render('chatroom.ejs');
+app.get("/room/:id", (req,res) => {
+    if(rooms.indexOf(req.params.id) > -1){
+        res.render('chatroom.ejs', { room : req.params.id });
+        return;
+    }
+    return res.status(404).send('Room doesn´t exists');
 });
 
 io.on("connection", (socket) => {
     console.log('Somebody just connected');
-    socket.on("send-chat-message", (msg) => {
-        socket.broadcast.emit('chat-message', msg);
-    });  
+    socket.on("send-chat-message", (msg, room) => {
+        socket.to(room).broadcast.emit("chat-message", msg);
+    });
+    socket.on("join", (room) => {
+        socket.join(room, e => {
+          console.log("Someone joined room " + room);
+        });
+    });
 });
 
 let rooms = ['Room1', 'Room2'];
