@@ -4,6 +4,7 @@ const app = express();
 const server = require("http").Server(app);
 const io = require("socket.io")(server);
 const bodyParser = require('body-parser');
+const bcrypt = require('bcryptjs');
 
 
 server.listen(8000);
@@ -11,6 +12,7 @@ server.listen(8000);
 app.use(bodyParser.json());
 app.use(cors());
 app.use(express.static(__dirname + '/views'));
+app.use(express.urlencoded({ extended: false }));
 
 app.get("/", (req,res) => {
     res.render('index.ejs');
@@ -21,6 +23,12 @@ app.get("/room/:id", (req,res) => {
         return;
     }
     return res.status(404).send('Room doesn´t exists');
+});
+app.get("/register", (req,res) => {
+    res.render('register.ejs');
+});
+app.get("/login", (req,res) => {
+    res.render('login.ejs');
 });
 
 io.on("connection", (socket) => {
@@ -36,6 +44,7 @@ io.on("connection", (socket) => {
 });
 
 let rooms = ['Room1', 'Room2'];
+let users = [];
 app.get('/rooms-list', (req,res) =>{
     return res.send(rooms);
 });
@@ -45,4 +54,17 @@ app.post('/create-new-room', (req,res) => {
     return res.send({
       status: 'success'
     });
+});
+app.post('/register', async (req,res) => {
+    try{
+        const hashedPassword = await bcrypt.hash(req.body.password, 5);
+        users.push({
+            name: req.body.name,
+            password: hashedPassword
+        });
+        res.redirect('/login');
+    }catch{
+        res.redirect('/register');
+    }
+    console.log(users);
 });
