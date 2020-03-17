@@ -6,7 +6,16 @@ const room = window.location.pathname.split("/")[2];
 socket.emit("join", room);
 
 socket.on("chat-message", (msg, from) => {
-  appendMsg(msg, "Someone", true);
+  appendMsg(msg, from, true);
+});
+
+socket.on("joined", (user) => {
+  appendMsg(user + " has joined a room!", "Info", true);
+});
+
+socket.on("users-typing", typing => {
+  console.log(typing);
+  showTyping(typing);
 });
 
 msgForm.addEventListener("submit", e => {
@@ -29,4 +38,22 @@ function appendMsg(msg, from, received) {
   msgEl.innerText = from + ': ' + msg;
   msgContainer.append(msgEl);
   msgContainer.scrollTop = msgContainer.scrollHeight;
+}
+
+msgInput.addEventListener("keyup", e => {
+  const isTyping = e.target.value.length > 0 ? true : false;
+  socket.emit("typing", room, isTyping);
+});
+
+function showTyping(typing) {
+  const typingUsers = document.getElementById("typing-users");
+  if (typing.length === 0) {
+    typingUsers.style.visibility = "hidden";
+  } else {
+    typingUsers.style.visibility = "visible";
+    typingUsers.style.fontSize = "8px";
+    typingUsers.style.color = "grey";
+    typingUsers.innerText =
+      typing.toString() + (typing.length > 1 ? " are " : " is ") + "typing";
+  }
 }
