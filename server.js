@@ -22,7 +22,8 @@ initPassport(passport,
 );
 
 
-server.listen(8000);
+const PORT = process.env.PORT || 8000;
+server.listen(PORT);
 
 app.use(bodyParser.json());
 app.use(cors());
