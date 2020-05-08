@@ -1,6 +1,6 @@
 const msgForm = document.getElementById("send-msg-container");
 const msgInput = document.getElementById("msg-input");
-const socket = io("http://localhost:8000");
+const socket = io(location.host);
 const room = window.location.pathname.split("/")[2];
 
 socket.emit("join", room);

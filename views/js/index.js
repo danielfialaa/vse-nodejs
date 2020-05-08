@@ -1,5 +1,5 @@
 import { api } from "/js/fetchApi.js";
-const socket = io("http://localhost:8000");
+const socket = io(location.host);
 const newRoomForm = document.getElementById("new-room-form");
 
 newRoomForm.addEventListener("submit", e => {
