@@ -1,206 +1,31 @@
 # Cvičení 7
-Naše současná podoba aplikace disponuje možností přihlášení. Uživatel si tedy může vytvořit účet, přihlásit se a díky tomu máme také k dispozici jeho přihlašovací jméno. Ohledně přihlašování nám chybí zamezit přístup k seznamu místností a přímo do místností, pokud není uživatel přihlášen. Díky tomu, že máme k dispozici jméno daného uživatele, můžeme také zapracovat na příjemnějším použití aplikace. Přidáme oznámení do místnosti, jakmile se do ní nějaký uživatel připojí, zobrazíme jeho jméno u zpráv, které zaslal a také budeme zobrazovat seznam právě píšících uživatelů. Také budeme vypisovat informační hlášku, kterou jsme si při implementaci nachystali, pro informaci o chybném přihlášení.
-## Zabezpečení přístupu do aplikace
-Aplikace jako taková by neměla být přístupná bez předchozího přihlášení. Potřebujeme tedy na všech cestách (kromě těch pro registraci a přihlášení) kontrolovat přihlášení uživatele, od kterého na server požadavek přijde. Na toto si vytvoříme dvě funkce, jedna bude kontrolovat, jestli je uživatel přihlášen, pokud ano, bude vše probíhat dále. Pokud ovšem vyjde, že přihlášen není, přesměrujeme ho na přihlašovací obrazovku. Druhá funkce bude dělat víceméně opak. Tu budeme používat na přihlašovacím a registračním okně, abychom uživatele rovnou z těchto částí přesměrovali do seznamu místností, pokud už je dávno přihlášen.
+Aplikace v současném stavu obsahuje všechny funkce, kterými by měla základní chatovací aplikace disponovat. Stále sice zbývá napojení na databázi, které je mnohem vhodnější řešení než současné ukládání všech informací do proměnných, ovšem k tomuto se dostaneme až v další části, kdy budeme mít aplikaci nasazenou na serveru. Právě deploy na server, konkrétně Heroku, bude předmětem tohoto cvičení. Samotné Heroku bylo zvoleno, jelikož nabízí balíček zdarma bez nutnosti zadávat číslo platební karty, což by pro některé mohlo být nepřijatelné. Díky GitHub education ([https://education.github.com/pack]) také mají studenti možnost získat, mimo jiné, navýšený balíček zdarma na dva roky. Tento balíček není nutností a pro naše účely stačí i onen naprostý základ, který je omezený na jednu spuštěnou instanci, 550 celkových hodin v provozu za měsíc a také se server automaticky po 30 minutách bez jakéhokoliv příchozího requestu uspí, ale z takového stavu lze opět nastartovat například přístupem do aplikace.
+## Deploy na Heroku
+Po vytvoření účtu je čas nahrát a spustit nás kód. Pro samotný přenos kódu na Heroku využijeme GitHub, na kterém je tedy nutné si vytvořit repozitář a nahrát (ideálně do větve master) kód, který chceme na serveru spustit. Heroku sice nabízí i jiná řešení pro deploy aplikací, ovšem tento způsob nevyžaduje instalaci dalších programů a postačí nám pouze základní znalost gitu.
 
-Vzhledem k tomu, že využíváme knihovny Passport, je tato implementace poměrně snadná, jelikož si přihlášení můžeme při každém požadavku ověřit pomocí req.isAuthenticated(). Tato funkce nám jednoduše vrátí boolean, reflektující, zda je uživatel odesílající požadavek podle serveru přihlášen. Vytvoříme si tedy dvě výše popsané funkce.
+Poté, co se přihlásíme do Heroku, uvidíme seznam našich aplikací, který je nyní prázdný. Klikneme tedy na tlačítko „Create new app“ a do formuláře, který se nám objevil zadáme jméno naší aplikace. Toto jméno musí být unikátní a bude součástí URL adresy k naší aplikaci. Po potvrzení budeme přesměrováni do dashboardu aplikace, přímo na část pro deploy. Zde zvolíme GitHub a kliknutím na tlačítko „Connect to GitHub“ se nám objeví vyskakovací okno s přihlášením do GitHub. Po úspěšném přihlášení se objeví možnost vybraní konkrétního repozitáře. Zde stačí, když klikneme na tlačítko „Search“ a u příslušného repozitáře klikneme na „Connect“. Jakmile proběhne napojení vybraného repozitáře, můžeme nastavit automatické nasazování aplikace. To znamená, že kdykoliv commitneme do námi vybrané větve, Heroku automaticky aktualizuje kód i na serveru. Tento deploy ovšem proběhne až po příštím commitu a tak než abychom znovu commitovali, vybereme stejnou větev v sekci „Manual deploy“ a provedeme manuální deploy. Heroku nám dále zobrazí, zda veškeré fáze proběhly úspěšně a pokud ano, zobrazí tlačítko view, které nám otevře naší aplikaci (obrázek 1). 
 
-```javascript
-function checkAuth(req, res, next) {
-    if(req.isAuthenticated()){
-        return next();
-    }
-    res.redirect('/login');
-}
-function checkNotAuth(req, res, next) {
-    if(req.isAuthenticated()){
-        return res.redirect('/');
-    }
-    next();
-}
-```
+![Ukázka nastaveného deploye na Heroku pomocí GitHubu](https://github.com/danielfialaa/vse-nodejs/blob/img/img/deploy.png)
 
-Na první pohled vypadají velmi podobně, jako naše arrow funkce v endpointech. S tím rozdílem (tedy kromě toho, že se jedná o běžný zápis funkce), že zde přibyl parametr **next**. Ta pro nás představuje funkci, kterou zavoláme, pokud budeme chtít pokračovat dále. V první funkci tedy pokud je uživatel přihlášen, v druhém případě pak naopak. První funkci tedy budeme chtít použít u endpointů, které mají být dostupné pouze přihlášeným uživatelům. Druhou funkci pak pro přesměrování přímo do seznamu místností, pokud by uživatel byl již přihlášen, ale ocitl se na přihlašovací obrazovce. Zakomponování těchto funkcí do jednotlivých endpointů je právě díky zmíněný funkce **next** velmi snadná. Stačí požadovanou funkci přidat každému endpointu do parametru, před arrow funkci, která se stará o jeho provedení. Například u zobrazení místností takto a obdobně přidáme požadované funkce k ostatním.
+Pokud se nyní ovšem pokusíme otevřít naši aplikaci, kterou jsme právě nasadili na server, zjistíme, že buď načítá, ale nic se nestane, případně se nám zobrazí chybová hláška. Problém je, že jsme aplikaci dosud nepřizpůsobili prostředí Heroku a také nám chybí vyžadovaný soubor zvaný „Procfile“, ve kterém Heroku řekneme, jaké příkazy provést, když se aplikace spouští ([https://devcenter.heroku.com/articles/procfile]). Nejedná se o žádné zásadní změny, spíše o často opomíjené chyby při vývoji pouze na lokálním stroji.
 
-```javascript
-app.get("/", checkAuth, (req,res) => { . . . }
-```
-
-## Zobrazení jména u zprávy a při připojení do místnosti
-Mohlo by se zdát, že nyní zobrazení jména odesílatele bude jen otázkou přidání dalšího parametru u rozesílání daného socketu. Částečně je to pravda, ovšem nyní nastává jeden problém. Musíme se k dostat k danému jménu uživatele, které máme v naší session, z websocketů, které jsou od tohoto oddělené. Nedostaneme se k těmto datům tedy tak, jako při vyřizovaní klasického požadavku, odeslaného na endpoint. Musíme si tedy naši session propojit i se sockety. K tomu nám vypomůže knihovna ** express-socket.io-session**. Tu si tedy skrze npm nainstalujeme.
+Nejprve si tedy v kořenovém adresáři naší aplikace vytvoříme soubor „Procfile“ (bez přípony). Jelikož se jedná o webovou aplikaci, která musí být přístupná i mimo Heroku, budeme nastavovat proces typu „web“ a zde nám bude stačit spouštět pomocí příkazu node, kterému předáme název naše hlavního souboru „server.js“. Tento konfigurační soubor je tak v našem případě velmi prostý a měl by obsahovat jen následující.
 
 ```bash
-npm i express-socket.io-session
+web: node server.js
 ```
 
-Nyní budeme muset pozměnit nastavení session na našem serveru, aby vše navzájem fungovalo.
-Nejprve si změníme pro usnadnění náš import **express-session**.
+První chyba, díky které se aplikace prakticky ani nespustí, je nastavení portu, na kterém běží. Při lokálním vývoji jsme si totiž nastavili, aby náš server běžel na portu 8000, ovšem Heroku nám nedovoluje si port, na kterém aplikace poběží, vybrat, ale aplikace jej dostane přidělený skrze takzvanou environmentální proměnou ([https://codeburst.io/process-env-what-it-is-and-why-when-how-to-use-it-effectively-505d0b2831e7]). Upravíme tedy kód tak, aby server naslouchal na portu, který mu bude touto proměnou přidělen. Abychom si ovšem tuto proměnou nemuseli nastavovat na svém stroji, když bychom aplikaci chtěli spustit na něm, přidáme podmínku, která použije proměnou s portem, pokud bude nastavená a v opačném případě použije port 8000 jako doposud. Pro přehlednost nebudeme toto psát přímo do funkce server.listen();, ale vytvoříme si nejprve konstantu a až tu až poté předáme této funkci.
 
 ```javascript
-const session = require('express-session');
-. . .
-app.use(session({
-    secret: 'secret-key',
-    resave: false,
-    saveUninitialized: false
-}));
-
-// Změníme na 
-const session = require('express-session')({
-    secret: 'secret-key',
-    resave: true,
-    saveUninitialized: true
-});
-. . .
-app.use(session);
+const PORT = process.env.PORT || 8000;
+server.listen(PORT);
 ```
 
-Nyní si naimportujeme před chvíli nainstalovanou knihovnu pro sdílení session se socket.io.
+Druhou chybou, kterou musíme vyřešit než bude aplikace na Heroku fungovat je na straně kódu klienta. Na straně klienta, kde využíváme knihovnu socket.io, pro práci se sockety voláme funkci io(), která nám vše inicializuje. V parametru jí ovšem v obou případech předáváme adresu „localhost:8000“, což nejenže již po milé úpravě neplatí tento port, ale také již nechceme, aby aplikace běžela pouze lokálně. Mohli bychom přímo napsat adresu naší aplikace na Heroku, ale zase by nám přestala fungovat na našem stroji nebo případně na jiném serveru s jinou adresou. Využijeme tedy vlastnosti JavaScriptu, respektive jeho objektu „location“ ([https://www.w3schools.com/js/js_window_location.asp]), který uchovává informace o tom, jakou adresu má daná stránka atp. Z těchto vlastností použijeme informaci „host“. V souborech „chatroom.js“ a „index.js“ tedy změníme naši inicializaci na následovné.
 
 ```javascript
-const sharedsession = require("express-socket.io-session");
+const socket = io(location.host);
 ```
 
-Vše je připraveno a zbývá pouze vše napojit na naše websockety. Respektive nastavit knihovně socket.io, aby použila sdílenou session, do které předáme naši hlavní **express-session**. Díky tomu budeme mít všechny údaje přístupné i při požadavcích skrze sockety.
-
-```javascript
-io.use(sharedsession(session));
-```
-
-Při připojení do místnosti odešle klient socket **join**. Právě zde budeme chtít k danému socketu nastavit jméno uživatele (které získáme ze sdílené session), které budeme využívat k zobrazení, kdo se připojil do místnosti, odesílatele a seznamu píšících uživatelů. Cesta k samotným údajům se může zdát poměrně zmatená. Skrze socket se k session dostaneme skrze socket.handshake.session. Odkud se potřebujeme dostat k session, kterou vytvořil Passport, tedy přidáme .passport a nakonec z této session chceme část dat o uživateli, kterou najdeme v části .user, kde máme uložené ID uživatele. Pomocí něj budeme hledat v našem seznamu uživatelů, podobně jako jsme to dělali v naší arrow funkci, která byla jako poslední parametr ve funkci initPassport(). Toto vše si jednoduše uložíme do našeho socketu, například pod klíčem **username**.
-
-```javascript
-socket.on("join", (room) => {
-	socket.username = users.find(user => user.id === socket.handshake.session.passport.user).name;
-        socket.join(room, e => {
-	console.log(socket.username + " joined room " + room);
-        });
-});
-```
-
-V tuto chvíli, když se uživatel připojí do místnosti, najde se podle ID jeho jméno v seznamu uživatelů a přiřadí se k jeho socketu. Dále budeme o této skutečnosti informovat i ostatní uživatele v místnosti. Rozešleme tedy socket (například **joined**) všem v místnosti, v němž pošleme jméno onoho uživatele.
-
-```javascript
-socket.join(room, e => {
-    socket.to(room).broadcast.emit("joined", socket.username);
-    console.log(socket.username + " joined room " + room);
-});
-```
-
-Než se pustíme do reakce na tento socket na straně klienta, přidáme si nově získané jméno uživatele k zprávě, kterou rozesíláme pomocí socketů.
-
-```javascript
-socket.on("send-chat-message", (msg, room) => {
-    socket.to(room).broadcast.emit("chat-message", msg, socket.username);
-});
-```
-
-Na zobrazení odesílatele na straně klienta máme vše připraveno, pouze využijeme druhý, dosud nepoužitý, parametr pro reakci na socket **chat-message** (soubor chatroom.js). Druhý parametr ve funkci appendMsg() nahradíme za parametr **from**.
-
-```javascript
-socket.on("chat-message", (msg, from) => {
-  appendMsg(msg, from, true);
-});
-```
-
-Co se týče zobrazení, že se uživatel připojil do místnosti, musíme zareagovat na dříve naimplementovaný socket **joined**. Zde v parametru dostaneme jméno uživatele. Nebudeme řešit implementaci zobrazení nějaké speciální hlášky a využijeme tedy naši funkci pro vykreslení zpráv 
-
-```javascript
-appendMsg(), kde si místo předání zprávy napíšeme informační hlášku a jako odesílatele nastavíme například **Info**.
-socket.on("joined", (user) => {
-  appendMsg(user + " has joined a room!", "Info", true);
-});
-```
-
-## Seznam právě píšících uživatelů
-Implementace této funkčnosti se dá zvládnout poměrně snadno. V principu musíme zachytávat událost, kdy má uživatel označené pole pro psaní zprávy a stiskne nějakou klávesu. Dále na základě obsahu tohoto pole určíme, jestli píše (něco je vyplněné), případně psát přestal, a odešleme websocket s touto informací na server. Server bude mít proměnou, ve které bude uchovávat seznam uživatelů, u kterých eviduje, že píší. Po přijetí socketu vyhodnotí, zda uživatel píše, nebo pole právě vymazal, dle toho upraví seznam píšících uživatelů a dále už jen zbývá uživatelům v dané místnosti rozeslat websocket s tímto seznamem.
-
-Podobně jako máme event pro odeslání formuláře, odchytíme událost pro stisknutí klávesy (použijeme keyup, aby se neodesílali sockety dokola při držení klávesy). V tomto kódu si dále vytvoříme proměnou, kde vyhodnotíme obsah tohoto pole. Nebudeme přímo odesílat obsah, ale pouze **true**, pokud něco obsahuje, případně **false**, pokud je pole prázdné. Následně jen odešleme websocket na server pomocí socket.emit(). Jako cíl můžeme vybrat například **typing**, dále odešleme místnost, ve které se uživatel nachází a naší proměnou reprezentující, zda uživatel píše.
-
-```javascript
-msgInput.addEventListener("keyup", e => {
-  const isTyping = e.target.value.length > 0 ? true : false;
-  socket.emit("typing", room, isTyping);
-});
-```
-
-Než se pustíme do implementace funkce, která bude na tento socket reagovat na straně serveru, na klientovi si ještě připravíme kód, který bude reagovat na příchozí socket se seznamem píšících uživatelů. Tento socket může být například **users-typing**, ve kterém budeme očekávat jeden argument a tím bude pole obsahující seznam píšících uživatelů. Při obdržení socketu budeme pouze volat funkci uvedenou níže, kterou si vložíme do kódu. Tato funkce více méně jen na základě příchozích hodnot mění, zda má být pole píšících uživatelů viditelné a jak se mají jména zobrazit.
-
-```javascript
-socket.on("users-typing", typing => {
-  showTyping(typing);
-});
-
-function showTyping(typing) {
-  const meTyping = e.target.value.length > 0 ? 2 : 1;
-  const typingUsers = document.getElementById("typing-users");
-  if (typing.length === (meTyping - 1)) {
-    typingUsers.style.visibility = "hidden";
-  } else {
-    typingUsers.style.visibility = "visible";
-    typingUsers.style.fontSize = "8px";
-    typingUsers.style.color = "grey";
-    typingUsers.innerText =
-      typing.toString() + (typing.length > meTyping ? " are " : " is ") + "typing";
-  }
-}
-```
-
-Tímto jsme prakticky vyřešili stranu klienta (prvek pro zobrazení píšících uživatelů je již součástí šablony – chatroom.ejs).
-
-Z toho, co jsme právě naimplementovali vyplívá i co musíme udělat na straně serveru. Tedy být schopni zareagovat na socket **typing**, na základě něj provést výše popsané úkony a rozeslat socket **users-typing**. Toto budeme implementovat do těla funkce io.on("connection".. stejně, jako ostatní reakce na příchozí sockety. U příchozího socketu **typing** si z klienta odesíláme dvě hodnoty – místnost, ve které je uživatel a informaci, zda uživatel píše. Odsud tedy budeme dále odesílat zpět socket se seznamem uživatelů. 
-
-```javascript
-socket.on("typing", (room, typing) => {
-    socket.to(room).broadcast.emit("users-typing", typingUsers);
-});
-```
-
-Máme připravené sockety, chybí nám ovšem nyní odesílaná proměnná **typingUsers**. Vytvoříme si tedy tuto proměnou s tímto názvem stejně, jako máme proměnou **rooms** pro místnosti nebo **users** pro registrované uživatele. Logika celé funkce bude poměrně snadná. Nejprve zkontrolujeme, zda v ní již daný uživatel není. Následně pokud v našem seznamu uživatel není a dle příchozí hodnoty uživatel píše, přidáme jej do naší proměnné (jelikož se jedná o pole, použijeme funkci .push()). Pokud bychom zjistili přesný opak, tedy že uživatel nepíše a v seznamu se nachází, musíme jej pomocí .splice() ze seznamu odebrat. Pokud se nepotvrdí ani jedna z podmínek, nemusíme seznam nijak upravovat a rovnou odešleme socket se seznamem píšících uživatelů.
-
-```javascript
-socket.on("typing", (room, typing) => {
-    const index = typingUsers.indexOf(socket.username);
-    if(typing && index < 0){
-        typingUsers.push(socket.username);
-    }else if(!typing && index > -1){
-        typingUsers.splice(index, 1);
-    }
-    socket.to(room).broadcast.emit("users-typing", typingUsers);
-});
-```
-
-## Zobrazení informačních hlášek u autorizace
-Informační hlášky o chybném přihlášení jsme si již nadefinovali v minulé lekci. Také jsme si naimportovali knihovnu **express-flash**, která se o zobrazení těchto hlášek stará. Vzhledem k tomu, že využíváme template soubory express serveru (soubory s příponou .ejs), zobrazení těchto hlášek je záležitostí několika řádků. Server totiž před vykreslením stránky, respektive před vrácením html kódu, vyhodnotí kód, který je ohraničen <% %>. Informační zprávu máme i napojenou a zobrazení pro nás tedy v tuto chvíli znamená doplnění tří řádku do souboru s formulářem pro přihlášení (login.ejs).
-
-```javascript
-<% if(messages.error) { %>
-    <%= messages.error %>
-<% } %>
-```
-
-Tento text můžeme umístit na stránce kam budeme chtít, stejně tak jej vložit do nějakého elementu a případně si jej i více nastylovat.
-
-## Odhlášení uživatele
-Naše aplikace má na stránce se seznamem místností v pravém horním rohu ikonku, na kterou když klikneme, objeví se menu, kde je možnost odhlášení. Dosud jsme ovšem tuto možnost nenaimplementovali a je nutné ji dodělat.
-V souboru, kde toto menu najdeme (index.ejs) musíme nejprve nastavit cestu pro odhlášení. Najdeme tedy část kódu, kde se tlačítko na odhlášení nachází a nastavíme cestu například na **/logout**.
-
-```html
-<li><a href="/logout">Logout</a></li>
-```
-
-Nyní se přesuneme k úpravě na serveru. Jelikož se jedná o standardní odkaz, bude se jednat o požadavek s metodou GET. Vytvoříme si tedy endpoint, který bude tento požadavek zpracovávat.
-
-```javascript
-app.get('/logout', (req, res) => {
-});
-```
-
-Samotné odhlášení je pak v principu snadné. Potřebujeme zrušit stávající session uživatele a přesměrovat jej ideálně na přihlašovací obrazovku. Vzhledem k použití knihovny Passport můžeme jednoduše zavolat funkci req.logOut() a uživatel bude pro systém odhlášen. Přesměrování na přihlašovací obrazovku pak provedeme pomocí funkce res.redirect() a máme hotovo.
-
-```javascript
-app.get('/logout', (req, res) => {
-    req.logOut();
-    return res.redirect('/login');
-});
-```
+Jelikož máme na Heroku nastavený automatický deploy po tom, co pushneme nový commit do naší produkční větve, zbývá tedy pouze nahrát do této větve (případně vhodněji nahrát do vývojové větve a z té provést merge na větev hlavní). Než ale uděláme tohle, je vhodné si otevřít logy, které najdeme v dashboardu naší aplikace. Zde můžeme vidět vše, co se serverem děje, a tedy i sledovat automatický deploy případně chyby, které by nastaly. Tyto logy najdeme v záložce „More“ v pravém horním rohu dashboardu, kde vybereme „View logs“. Po jejich otevření můžeme nahrát kód a na GitHub a počkat až se provede automatický deploy. 
