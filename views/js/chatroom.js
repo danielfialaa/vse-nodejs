@@ -23,7 +23,7 @@ msgForm.addEventListener("submit", e => {
   let msgInput = document.getElementById("msg-input");
   console.log(msgInput.value);
   socket.emit("send-chat-message", msgInput.value, room);
-  // socket.emit("typing", room, false);
+  socket.emit("typing", room, false);
   appendMsg(msgInput.value, 'You', false);
   msgInput.value = "";
 });
