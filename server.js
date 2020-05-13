@@ -66,19 +66,24 @@ io.on("connection", (socket) => {
         });
     });
     socket.on("typing", (room, typing) => {
-        const index = typingUsers.indexOf(socket.username);
-        if(typing && index < 0){
-            typingUsers.push(socket.username);
-        }else if(!typing && index > -1){
-            typingUsers.splice(index, 1);
-        }
-        socket.to(room).broadcast.emit("users-typing", typingUsers);
+			if(typingUsers[room]){
+				console.log(typingUsers[room]);
+				let index = typingUsers[room].indexOf(socket.username);
+				if (typing && index < 0) {
+					typingUsers[room].push(socket.username);
+				} else if (!typing && index > -1) {
+					typingUsers[room].splice(index, 1);
+				}
+			}else{
+				typingUsers[room] = [socket.username];
+			}
+			socket.to(room).broadcast.emit("users-typing", typingUsers[room]);
     });
 });
 
 let rooms = ['Room1', 'Room2'];
 let users = [];
-let typingUsers = [];
+let typingUsers = {};
 app.get('/rooms-list', checkAuth, (req,res) =>{
     return res.send(rooms);
 });
