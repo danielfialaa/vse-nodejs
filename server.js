@@ -13,13 +13,25 @@ const session = require('express-session')({
     saveUninitialized: true
 });
 const sharedsession = require("express-socket.io-session");
+const redis = require("redis");
+let redisClient;
+
+if(process.env.REDIS_URL){
+	console.log('Running on Heroku redis...');
+	redisClient = redis.createClient(process.env.REDIS_URL);
+}else{
+	console.log('No env.REDIS_URL, redis on local');
+	redisClient = redis.createClient(process.env.REDIS_URL);
+}
+
+redisClient.on('error', (err) => {
+	console.log(err);
+	process.exit(1);
+});
 
 
 const initPassport = require('./passport-config');
-initPassport(passport, 
-    name => users.find(user => user.name === name),
-    id => users.find(user => user.id === id)    
-);
+initPassport(passport, getUserByName, getUserById);
 
 
 const PORT = process.env.PORT || 8000;
@@ -39,11 +51,18 @@ app.get("/", checkAuth, (req,res) => {
     res.render('index.ejs');
 });
 app.get("/room/:id", checkAuth, (req,res) => {
-    if(rooms.indexOf(req.params.id) > -1){
+    // if(rooms.indexOf(req.params.id) > -1){
+    //     res.render('chatroom.ejs', { room : req.params.id });
+    //     return;
+    // }
+		// return res.status(404).send('Room doesn´t exists');
+		redisClient.smembers('rooms', (err, rooms) => {
+			if(rooms.indexOf(req.params.id) > -1){
         res.render('chatroom.ejs', { room : req.params.id });
         return;
-    }
-    return res.status(404).send('Room doesn´t exists');
+			}
+			return res.status(404).send('Room doesn´t exists');
+		});
 });
 app.get("/register", checkNotAuth, (req,res) => {
     res.render('register.ejs');
@@ -60,36 +79,37 @@ io.on("connection", (socket) => {
         socket.to(room).broadcast.emit("chat-message", msg, socket.username);
     });
     socket.on("join", (room) => {
-        socket.username = users.find(user => user.id === socket.handshake.session.passport.user).name;
+				// socket.username = users.find(user => user.id === socket.handshake.session.passport.user).name;
+				socket.username = socket.handshake.session.passport.user.split(':')[1];
         socket.join(room, e => {
           socket.to(room).broadcast.emit("joined", socket.username);
           console.log(socket.username + " joined room " + room);
         });
     });
     socket.on("typing", (room, typing) => {
-			if(typingUsers[room]){
-				console.log(typingUsers[room]);
-				let index = typingUsers[room].indexOf(socket.username);
-				if (typing && index < 0) {
-					typingUsers[room].push(socket.username);
-				} else if (!typing && index > -1) {
-					typingUsers[room].splice(index, 1);
-				}
+			let typingKey = 'typing:' + room;
+			redisClient.expire(typingKey, 5);
+			if(typing){
+				redisClient.sadd(typingKey, socket.username);
 			}else{
-				typingUsers[room] = [socket.username];
+				redisClient.srem(typingKey, socket.username);
 			}
-			socket.to(room).broadcast.emit("users-typing", typingUsers[room]);
+			redisClient.smembers(typingKey, (err, obj) => {
+				socket.to(room).broadcast.emit("users-typing", obj);
+			});
     });
 });
 
-let rooms = ['Room1', 'Room2'];
 let users = [];
-let typingUsers = {};
 app.get('/rooms-list', checkAuth, (req,res) =>{
-    return res.send(rooms);
+		// return res.send(rooms);
+		redisClient.smembers('rooms', (err, obj) => {
+			return res.send(obj);
+		});
 });
 app.post('/create-new-room', checkAuth, (req,res) => {
-    rooms.push(req.body.room);
+		// rooms.push(req.body.room);
+		redisClient.sadd('rooms', req.body.room);
     io.sockets.emit('room-updated');
     return res.send({
       status: 'success'
@@ -98,11 +118,15 @@ app.post('/create-new-room', checkAuth, (req,res) => {
 app.post('/register', checkNotAuth, async (req,res) => {
     try{
         const hashedPassword = await bcrypt.hash(req.body.password, 5);
-        users.push({
-            id: Date.now().toString(),
-            name: req.body.name,
-            password: hashedPassword
-        });
+				redisClient.hmset('user:' + req.body.name, 
+						['name', req.body.name, 'password', hashedPassword],
+						(err, reply) => {
+							if(err){
+								return res.redirect('/register');
+							}else{
+								return res.redirect('/login');
+							}
+				});
         res.redirect('/login');
     }catch{
         res.redirect('/register');
@@ -130,4 +154,17 @@ function checkNotAuth(req, res, next) {
         return res.redirect('/');
     }
     next();
+}
+
+async function getUserByName(name, callback){
+	let id = 'user:' + name;
+	getUserById(id, callback);
+}
+
+async function getUserById(id, callback){
+	await redisClient.hgetall(id, (err, obj) => {
+		if(!obj) return callback(null);
+		obj.id = id;
+		return callback(obj);
+	});
 }
