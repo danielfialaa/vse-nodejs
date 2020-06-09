@@ -29,3 +29,55 @@ const socket = io(location.host);
 ```
 
 Jelikož máme na Heroku nastavený automatický deploy po tom, co pushneme nový commit do naší produkční větve, zbývá tedy pouze nahrát do této větve (případně vhodněji nahrát do vývojové větve a z té provést merge na větev hlavní). Než ale uděláme tohle, je vhodné si otevřít logy, které najdeme v dashboardu naší aplikace. Zde můžeme vidět vše, co se serverem děje, a tedy i sledovat automatický deploy případně chyby, které by nastaly. Tyto logy najdeme v záložce „More“ v pravém horním rohu dashboardu, kde vybereme „View logs“. Po jejich otevření můžeme nahrát kód a na GitHub a počkat až se provede automatický deploy. 
+
+## Redis
+Prozatím jsme ukládali všechny data o uživatelích do proměnných na serveru a v textu je zmíněno, že nakonec vše budeme ukládat do databáze. Právě pro tyto účely použijeme Redis. Nejedná se úplně o standardní řešení, jelikož je většinou využíván jako vrstva pro cashování pro lepší výkonnost aplikace. My si jej ovšem tímto způsobem můžeme snadno vyzkoušet použít. Výhoda Redisu je také v možnosti uchovávat session uživatele a také jeho socket, takže při loadbalancingu, kde by běželo více instancí aplikace, mezi kterými by mohl být uživatel různě přepínán pro optimální zatížení, by přihlášení a token platili dále a uživatel by ani nepoznal, že je chvílemi například na jiném serveru. Nejprve je nutné si ale samotný Redis nastavit, abychom s ním mohli začít pracovat. V případě, že máme na Heroku vyplněné platební údaje, můžeme využít Redis přímo od Heroku a nebudeme muset nic instalovat. Pokud jste se rozhodli platební údaje nevyplňovat, bude nutné testovat lokálně a nainstalovat si Redis server na svém stoji.
+### Lokální instalace
+Redis jako takový neběží nativně na Windows. Pokud jej budeme chtít využít zde, budeme muset použít WSL, tedy jakousi virtualizaci Linuxu přímo ve Windows. Pokud nemáte WSL zapnuté (standardně bývá vypnuté), je nutné otevřít jako administrátor PowerShell a zadat následující příkaz.
+
+```bash
+Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-Linux
+```
+
+Po tomto kroku je nutné restartovat systém a po restartu stáhnout Linuxovou distribuci pro náš subsystém. Tu nebudeme stahovat klasicky, jako bychom chtěli instalovat Linux. Místo toho se přesuneme do Microsoft Store ve Windows. Zde vyhledáme požadovanou distribuci, například Ubuntu a nainstalujeme.
+
+![Stránka Ubuntu pro WSL v Microsoft Store](https://github.com/danielfialaa/vse-nodejs/blob/img/img/wsl_msstore.png)
+
+Jakmile proběhne instalace, spustíme distribuci jako klasický program (dohledatelné v nabídce Start). Nejprve je třeba dokončit základní nastavení, jako je vytvoření uživatele, hesla atp. Poté již bude připraveno pro instalaci Redis balíčku. Zadáme následující příkazy.
+
+```bash
+sudo apt-get update
+sudo apt-get upgrade
+sudo apt-get install redis-server
+redis-cli -v
+```
+
+Po instalaci pro jistotu ještě službu Redis serveru zrestartujeme, abychom měli jistotu, že běží.
+
+```bash
+sudo service redis-server restart
+```
+
+Následujícím příkazem se dostaneme do prostředí Redisu.
+
+```bash
+redis-cli
+```
+
+Můžeme si vyzkoušet zapsání hodnoty a její vrácení, abychom ověřili, že prozatím vše funguje tak jak má.
+
+```bash
+set test:1 "Test"
+get test:1
+```
+
+### Redis na Heroku
+Pro aktivaci pluginu pro Redis na Heroku nejprve přejdeme do sekce s naší aplikací, konkrétně do sekce „Overview“, kde vybereme „Configure Add-ons“.
+
+![Přehled aplikace na Heroku s položkou pro instalaci Add-onů](https://github.com/danielfialaa/vse-nodejs/blob/img/img/heroku-overv.png)
+
+Zobrazí se nám vyhledávací pole, kde budeme hledat „Heroku Redis“, které vybereme. Ve vyskakovací okně potvrdíme a Redis se nám přidá. Na řádku, kde se nám objeví můžeme vidět načítání, které signalizuje, že probíhá jeho konfigurace. Po dokončení se tento načítací prvek změní v tlačítko, v tuto chvíli je Redis nainstalován.
+
+![Ukázka nainstalovaného Redis add-onu na Heroku](https://github.com/danielfialaa/vse-nodejs/blob/img/img/redis-heroku-inst.png)
+
+Pokud na plugin klikneme, objeví se nám jeho přehled, kde budeme moci později vidět uložená data, případně se zde můžeme přepnout do nastavení, kde si můžeme zobrazit informace o tomto Redis serveru. Ty mohou přijít vhod, pokud bychom chtěli přistupovat k tomuto serveru z aplikace běžící mimo naše Heroku. V případě, ale že máme nastavení Redis jako plugin naší Node.js aplikace, budeme mít tyto údaje dostupné skrze enviromentální proměnné.
