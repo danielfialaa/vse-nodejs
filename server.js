@@ -127,7 +127,6 @@ app.post('/register', checkNotAuth, async (req,res) => {
 								return res.redirect('/login');
 							}
 				});
-        res.redirect('/login');
     }catch{
         res.redirect('/register');
     }
