@@ -1,83 +1,208 @@
-# Cvičení 7
-Aplikace v současném stavu obsahuje všechny funkce, kterými by měla základní chatovací aplikace disponovat. Stále sice zbývá napojení na databázi, které je mnohem vhodnější řešení než současné ukládání všech informací do proměnných, ovšem k tomuto se dostaneme až v další části, kdy budeme mít aplikaci nasazenou na serveru. Právě deploy na server, konkrétně Heroku, bude předmětem tohoto cvičení. Samotné Heroku bylo zvoleno, jelikož nabízí balíček zdarma bez nutnosti zadávat číslo platební karty, což by pro některé mohlo být nepřijatelné. Díky GitHub education (https://education.github.com/pack) také mají studenti možnost získat, mimo jiné, navýšený balíček zdarma na dva roky. Tento balíček není nutností a pro naše účely stačí i onen naprostý základ, který je omezený na jednu spuštěnou instanci, 550 celkových hodin v provozu za měsíc a také se server automaticky po 30 minutách bez jakéhokoliv příchozího requestu uspí, ale z takového stavu lze opět nastartovat například přístupem do aplikace.
-## Deploy na Heroku
-Po vytvoření účtu je čas nahrát a spustit nás kód. Pro samotný přenos kódu na Heroku využijeme GitHub, na kterém je tedy nutné si vytvořit repozitář a nahrát (ideálně do větve master) kód, který chceme na serveru spustit. Heroku sice nabízí i jiná řešení pro deploy aplikací, ovšem tento způsob nevyžaduje instalaci dalších programů a postačí nám pouze základní znalost gitu.
+# Cvičení 8
+Nyní když máme připravený Redis server, můžeme začít s úpravou naší aplikace, aby data neukládala do proměnných jako doposud, ale právě na Redis. Jeho použití není příliš složité, ovšem poměrně se liší od klasických databází, se kterými jste se mohli setkat. Převážně funkce pro výběr dat z této databáze nefunguje klasickým způsobem, kterým byste pravděpodobně čekali, ale vše je řízeno [callbacky](https://developer.mozilla.org/en-US/docs/Glossary/Callback_function). Kvůli tomuto budeme muset udělat několik úprav v tom, jak je funkčnost některých prvků napsaná. Nejedná se ovšem o příliš složitou záležitost. Je pouze nutné pochopit, co to vlastně callback je, jak funguje a poté jsou již úpravy snadné. Nejnáročnější úprava bude u uživatelských účtů. Tu si ovšem necháme nakonec a nejprve si Redis do aplikace napojíme a začneme od jednodušších, jako jsou názvy místností.
 
-Poté, co se přihlásíme do Heroku, uvidíme seznam našich aplikací, který je nyní prázdný. Klikneme tedy na tlačítko „Create new app“ a do formuláře, který se nám objevil zadáme jméno naší aplikace. Toto jméno musí být unikátní a bude součástí URL adresy k naší aplikaci. Po potvrzení budeme přesměrováni do dashboardu aplikace, přímo na část pro deploy. Zde zvolíme GitHub a kliknutím na tlačítko „Connect to GitHub“ se nám objeví vyskakovací okno s přihlášením do GitHub. Po úspěšném přihlášení se objeví možnost vybraní konkrétního repozitáře. Zde stačí, když klikneme na tlačítko „Search“ a u příslušného repozitáře klikneme na „Connect“. Jakmile proběhne napojení vybraného repozitáře, můžeme nastavit automatické nasazování aplikace. To znamená, že kdykoliv commitneme do námi vybrané větve, Heroku automaticky aktualizuje kód i na serveru. Tento deploy ovšem proběhne až po příštím commitu a tak než abychom znovu commitovali, vybereme stejnou větev v sekci „Manual deploy“ a provedeme manuální deploy. Heroku nám dále zobrazí, zda veškeré fáze proběhly úspěšně a pokud ano, zobrazí tlačítko view, které nám otevře naší aplikaci (obrázek 1). 
-
-![Ukázka nastaveného deploye na Heroku pomocí GitHubu](https://github.com/danielfialaa/vse-nodejs/blob/img/img/deploy.png)
-
-Pokud se nyní ovšem pokusíme otevřít naši aplikaci, kterou jsme právě nasadili na server, zjistíme, že buď načítá, ale nic se nestane, případně se nám zobrazí chybová hláška. Problém je, že jsme aplikaci dosud nepřizpůsobili prostředí Heroku a také nám chybí vyžadovaný soubor zvaný „Procfile“, ve kterém Heroku řekneme, jaké příkazy provést, když se aplikace spouští (https://devcenter.heroku.com/articles/procfile). Nejedná se o žádné zásadní změny, spíše o často opomíjené chyby při vývoji pouze na lokálním stroji.
-
-Nejprve si tedy v kořenovém adresáři naší aplikace vytvoříme soubor „Procfile“ (bez přípony). Jelikož se jedná o webovou aplikaci, která musí být přístupná i mimo Heroku, budeme nastavovat proces typu „web“ a zde nám bude stačit spouštět pomocí příkazu node, kterému předáme název naše hlavního souboru „server.js“. Tento konfigurační soubor je tak v našem případě velmi prostý a měl by obsahovat jen následující.
+## Napojení aplikace na Redis
+Než začneme s ukládáním dat na Redis, potřebujeme si k němu vytvořit připojení. K tomu si nejprve budeme muset nainstalovat potřebnou knihovnu.
 
 ```bash
-web: node server.js
+npm i redis 
 ```
 
-První chyba, díky které se aplikace prakticky ani nespustí, je nastavení portu, na kterém běží. Při lokálním vývoji jsme si totiž nastavili, aby náš server běžel na portu 8000, ovšem Heroku nám nedovoluje si port, na kterém aplikace poběží, vybrat, ale aplikace jej dostane přidělený skrze takzvanou environmentální proměnou (https://codeburst.io/process-env-what-it-is-and-why-when-how-to-use-it-effectively-505d0b2831e7). Upravíme tedy kód tak, aby server naslouchal na portu, který mu bude touto proměnou přidělen. Abychom si ovšem tuto proměnou nemuseli nastavovat na svém stroji, když bychom aplikaci chtěli spustit na něm, přidáme podmínku, která použije proměnou s portem, pokud bude nastavená a v opačném případě použije port 8000 jako doposud. Pro přehlednost nebudeme toto psát přímo do funkce server.listen();, ale vytvoříme si nejprve konstantu a až tu až poté předáme této funkci.
+Tu si následně na serveru inicializujeme, společně s proměnou, kde budeme uchovávat připojeného klienta, pro komunikaci s Redisem.
 
 ```javascript
-const PORT = process.env.PORT || 8000;
-server.listen(PORT);
+const redis = require("redis");
+let redisClient;
 ```
 
-Druhou chybou, kterou musíme vyřešit než bude aplikace na Heroku fungovat je na straně kódu klienta. Na straně klienta, kde využíváme knihovnu socket.io, pro práci se sockety voláme funkci io(), která nám vše inicializuje. V parametru jí ovšem v obou případech předáváme adresu „localhost:8000“, což nejenže již po milé úpravě neplatí tento port, ale také již nechceme, aby aplikace běžela pouze lokálně. Mohli bychom přímo napsat adresu naší aplikace na Heroku, ale zase by nám přestala fungovat na našem stroji nebo případně na jiném serveru s jinou adresou. Využijeme tedy vlastnosti JavaScriptu, respektive jeho objektu „location“ (https://www.w3schools.com/js/js_window_location.asp), který uchovává informace o tom, jakou adresu má daná stránka atp. Z těchto vlastností použijeme informaci „host“. V souborech „chatroom.js“ a „index.js“ tedy změníme naši inicializaci na následovné.
+Vzhledem k tomu, že v předešlé lekci jsme mohli zvolit ze dvou možností, kde budeme Redis provozovat, napíšeme si nastavení klienta tak, aby respektoval obě možnosti. Jak bylo řečeno, z Heroku získáme informace o Redis databázi skrze enviromentální proměnnou. Pokud tedy zjistíme, že taková proměnná je nastavená, připojíme klienta skrze ni. V opačném případě budeme počítat s tím, že je Redis provozován lokálně. Nastavení klienta se provádí pomocí redis.createClient(), kde pokud nepřidáme žádný parametr do funkce, počítá se, že je Redis na lokální adrese. Pokud spustíme aplikaci na Heroku, kde máme Redis, musíme do parametru předat proměnou process.env.REDIS_URL.
 
 ```javascript
-const socket = io(location.host);
+if(process.env.REDIS_URL){
+  console.log('Running on Heroku redis...');
+  redisClient = redis.createClient(process.env.REDIS_URL);
+}else{
+  console.log('No env.REDIS_URL, redis on local');
+  redisClient = redis.createClient(process.env.REDIS_URL);
+}
 ```
 
-Jelikož máme na Heroku nastavený automatický deploy po tom, co pushneme nový commit do naší produkční větve, zbývá tedy pouze nahrát do této větve (případně vhodněji nahrát do vývojové větve a z té provést merge na větev hlavní). Než ale uděláme tohle, je vhodné si otevřít logy, které najdeme v dashboardu naší aplikace. Zde můžeme vidět vše, co se serverem děje, a tedy i sledovat automatický deploy případně chyby, které by nastaly. Tyto logy najdeme v záložce „More“ v pravém horním rohu dashboardu, kde vybereme „View logs“. Po jejich otevření můžeme nahrát kód a na GitHub a počkat až se provede automatický deploy. 
+Knihovna, kterou používáme, má událost pro chybu, pro kterou si nastavíme její vypsání do konzole a případně následné ukončení celé aplikace. Při chybném napojení by totiž aplikace nespadla, ale v momentě, kdy bychom se snažili Redis použít, začali by se objevovat chyby. Událost si tedy odchytíme a provedeme zmíněné operace. 
 
-## Redis
-Prozatím jsme ukládali všechny data o uživatelích do proměnných na serveru a v textu je zmíněno, že nakonec vše budeme ukládat do databáze. Právě pro tyto účely použijeme Redis. Nejedná se úplně o standardní řešení, jelikož je většinou využíván jako vrstva pro cashování pro lepší výkonnost aplikace. My si jej ovšem tímto způsobem můžeme snadno vyzkoušet použít. Výhoda Redisu je také v možnosti uchovávat session uživatele a také jeho socket, takže při loadbalancingu, kde by běželo více instancí aplikace, mezi kterými by mohl být uživatel různě přepínán pro optimální zatížení, by přihlášení a token platili dále a uživatel by ani nepoznal, že je chvílemi například na jiném serveru. Nejprve je nutné si ale samotný Redis nastavit, abychom s ním mohli začít pracovat. V případě, že máme na Heroku vyplněné platební údaje, můžeme využít Redis přímo od Heroku a nebudeme muset nic instalovat. Pokud jste se rozhodli platební údaje nevyplňovat, bude nutné testovat lokálně a nainstalovat si Redis server na svém stoji.
-### Lokální instalace
-Redis jako takový neběží nativně na Windows. Pokud jej budeme chtít využít zde, budeme muset použít WSL, tedy jakousi virtualizaci Linuxu přímo ve Windows. Pokud nemáte WSL zapnuté (standardně bývá vypnuté), je nutné otevřít jako administrátor PowerShell a zadat následující příkaz.
-
-```bash
-Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-Linux
+```javascript
+redisClient.on('error', (err) => {
+  console.log(err);
+  process.exit(1);
+});
 ```
 
-Po tomto kroku je nutné restartovat systém a po restartu stáhnout Linuxovou distribuci pro náš subsystém. Tu nebudeme stahovat klasicky, jako bychom chtěli instalovat Linux. Místo toho se přesuneme do Microsoft Store ve Windows. Zde vyhledáme požadovanou distribuci, například Ubuntu a nainstalujeme.
+## Ukládání místností
+Naše operace s místnostmi jsou poměrně snadné. V podstatě místnosti pouze na jednom místě vytváříme, na dalším místě si vypisujeme seznam místností a při přechodu mezi místnostmi ověřujeme, zda taková místnost skutečně existuje.
 
-![Stránka Ubuntu pro WSL v Microsoft Store](https://github.com/danielfialaa/vse-nodejs/blob/img/img/wsl_msstore.png)
+Pro vytvoření záznamu použijeme funkci [„SADD“](https://redis.io/commands/sadd), která nám zjednodušeně vytváří pod klíčem pole unikátních hodnot. Pokud by již hodnota existovala, prostě se vložení ignoruje. V našem endpointu, kde dochází k vytváření místností tedy nahradíme vkládání názvu místnosti do pole, za zavolání zmíněné funkce skrze našeho klienta pro Redis. Do parametru si dále nejprve vložíme klíč k naší položce, která bude uchovávat seznam místností a dále příchozí název místnosti.
 
-Jakmile proběhne instalace, spustíme distribuci jako klasický program (dohledatelné v nabídce Start). Nejprve je třeba dokončit základní nastavení, jako je vytvoření uživatele, hesla atp. Poté již bude připraveno pro instalaci Redis balíčku. Zadáme následující příkazy.
-
-```bash
-sudo apt-get update
-sudo apt-get upgrade
-sudo apt-get install redis-server
-redis-cli -v
+```javascript
+// rooms.push(req.body.room);
+redisClient.sadd('rooms', req.body.room);
 ```
 
-Po instalaci pro jistotu ještě službu Redis serveru zrestartujeme, abychom měli jistotu, že běží.
+Nyní můžeme vyzkoušet aplikaci spustit a pokusit se vytvořit místnost. Stále se nám nezobrazí, ovšem můžeme přejít na náš Redis a zjistit, zda se daný záznam vytvořil. U Heroku ve webovém rozhraní, které bylo zmíněno v minulé lekci. V případě lokálního Redis serveru v něm můžeme zadat příkaz [„SMEMBERS“](https://redis.io/commands/smembers), který slouží k vypsání obsahu právě takovýchto položek.
 
-```bash
-sudo service redis-server restart
+Názvy příkazů přímo odpovídají názvům funkcí použitelných skrze našeho Redis klienta. Funkci, kterou jsme tedy právě použili po ověření, zda se nám záznam uložil použijeme u endpointu, který uživateli odesílal seznam dostupných místností, které se následně zobrazí v nabídkovém seznamu. Zde se poprvé setkáme s vracením hodnot z Redis serveru do aplikace a dost možná narazíme na první problém. Tyto funkce totiž nevrací hodnoty standardně, tak jak bychom čekali, a nemůžeme si je tak uložit tak jak bychom standardně čekali. Tedy, že zavoláme funkci, ta nám vrátí hodnotu a tu si buď rovnou vracíme dále nebo ji uložíme do proměnné. Namísto toho fungují tyto funkce asynchroně a hodnoty vrací skrze callback, což prakticky znamená, že do parametru volané funkce vložíme funkci jinou, která se zavolá v momentě, kdy nám server vrátí hodnotu, a právě v této funkci budeme mít danou hodnotu dostupnou. Odpověď na tento náš endpoint tedy bude muset být právě v této callback funkci, jinak by se odpověď poslala dříve, než by dotaz na databázi proběhl. Tyto callback funkce Redisu mají jako první parametr možnou zprávu o chybě a jako druhý dotazovanou hodnotu. Tělo našeho endpointu by tak mělo vypadat zhruba takto.
+
+```javascript
+// return res.send(rooms);
+redisClient.smembers('rooms', (err, obj) => {
+      return res.send(obj);
+});
 ```
 
-Následujícím příkazem se dostaneme do prostředí Redisu.
+Jako další musíme vyřešit kontrolu, zda existuje místnost, která se provádí, pokud se uživatel snaží vstoupit do místnosti. Použijeme opět stejnou funkci, jakou jsme použili, když jsme potřebovali seznam místností a jelikož nám tyto místnosti přijdou v poli, tedy ve stejné podobě, v jaké jsme je uchovávali doposud, bude i kontrola totožná (pouze se bude vykonávat v callbacku).
 
-```bash
-redis-cli
+```javascript
+// if(rooms.indexOf(req.params.id) > -1){
+//     res.render('chatroom.ejs', { room : req.params.id });
+//     return;
+// }
+// return res.status(404).send('Room doesn´t exists');
+redisClient.smembers('rooms', (err, rooms) => {
+   if(rooms.indexOf(req.params.id) > -1){
+      res.render('chatroom.ejs', { room : req.params.id });
+      return;
+   }
+   return res.status(404).send('Room doesn´t exists');
+});
 ```
 
-Můžeme si vyzkoušet zapsání hodnoty a její vrácení, abychom ověřili, že prozatím vše funguje tak jak má.
+## Píšící uživatelé
+Dále přepíšeme ukládání píšících uživatelů, tak aby se tyto údaje ukládali do naší Redis databáze. V podstatě budeme používat identické funkce jako v případě místností, ovšem potřebujeme oddělit píšící uživatele v jednotlivých místnostech, takže použijeme název místnosti jako součást klíče k seznamu našich hodnot, respektive píšících uživatelů. Navíc také budeme nastavovat životnost. Redis umožňuje na hodnoty s klíčem nastavit [životnost](https://redis.io/commands/expire), tedy dobu, po které bude záznam vymazán.
 
-```bash
-set test:1 "Test"
-get test:1
+Na straně serveru řešíme logiku píšících uživatelů při příchodu socketu „typing“. Nejprve si vytvoříme klíč pro píší uživatele v dané místnosti (například složením „typing:“ a název místnosti, ve které uživatel právě píše). Poté můžeme využít funkce expire(), která nám udá, za jakou dobu se záznamy odstraní. V prvním parametru ji předáme vytvořený klíč a v druhém parametru čas ve vteřinách. Máme zde také dostupnou hodnotu „typing“, která nám udává, zda uživatel píše nebo již psát přestal. Dle toho budeme podmínkou rozhodovat, zda budeme záznam o psaní do databáze přidávat pomocí sadd(), případně zda budeme záznam odebírat skrze srem(). Po těchto krocích opět využijeme funkce smemmbers(), v jejímž callbacku budeme seznam píšících uživatelů odesílat zpět na uživatele.
+
+```javascript
+let typingKey = 'typing:' + room;
+redisClient.expire(typingKey, 60);
+if(typing){
+    redisClient.sadd(typingKey, socket.username);
+}else{
+    redisClient.srem(typingKey, socket.username);
+}
+redisClient.smembers(typingKey, (err, obj) => {
+socket.to(room).broadcast.emit("users-typing", obj);
+});
 ```
 
-### Redis na Heroku
-Pro aktivaci pluginu pro Redis na Heroku nejprve přejdeme do sekce s naší aplikací, konkrétně do sekce „Overview“, kde vybereme „Configure Add-ons“.
+## Uživatelé
+Ukládání registrovaných uživatelů je již poněkud komplikovanější, jelikož vše musíme napojit na námi využívanou knihovnu Passport. V této časti tedy bude nutné značně větší množství úprav než v případě předešlých, jelikož budeme muset spoustu funkčnosti přepsat do callbacků, tak aby vše fungovalo s Redis databází.
 
-![Přehled aplikace na Heroku s položkou pro instalaci Add-onů](https://github.com/danielfialaa/vse-nodejs/blob/img/img/heroku-overv.png)
+Nejprve se zaměříme na volání funkce initPassport(), kde v parametrech předáváme arrow funkce, která reprezentují nalezení uživatele skrze jméno, respektive pomocí ID. Toto budeme muset nahradit. Funkce si napíšeme zvlášť a pouze je v parametrech předáme. Nejprve si tedy upravme tuto inicializaci Passportu.
 
-Zobrazí se nám vyhledávací pole, kde budeme hledat „Heroku Redis“, které vybereme. Ve vyskakovací okně potvrdíme a Redis se nám přidá. Na řádku, kde se nám objeví můžeme vidět načítání, které signalizuje, že probíhá jeho konfigurace. Po dokončení se tento načítací prvek změní v tlačítko, v tuto chvíli je Redis nainstalován.
+```javascript
+initPassport(passport, getUserByName, getUserById);
+```
 
-![Ukázka nainstalovaného Redis add-onu na Heroku](https://github.com/danielfialaa/vse-nodejs/blob/img/img/redis-heroku-inst.png)
+Nyní si tyto do parametrů přidané funkce budeme muset vytvořit. Bude se jednat z podstaty Redisu o asynchronní funkce, které se budou dotazovat Redisu na existenci uživatele. Obě tyto funkce budou mít dva parametry. První bude reprezentovat hodnotu, dle které se má uživatel vyhledávat, druhý bude reprezentovat callback, který se má zavolat, jakmile budeme mít výsledek. Řešení je to poměrně chaotické ale fungovat to bude následovně. Funkce, které nyní vytvoříme se předají při vytváření do Passportu. Ten si je při ověřování zavolá a předá jim současně také callback funkci, kterou potřebuje, aby se vykonala, jakmile bude získaná hodnota. Vzhledem k tomu, jakým stylem jsou hodnoty v Redisu ukládané, již nebudeme používat generované ID uživatele, ale jako klíč nám poslouží „user:“, za které doplníme jméno uživatele. V případě hledání skrze ID se tedy budeme dotazovat našeho Redis serveru pomocí funkce [hgetall()](https://redis.io/commands/hgetall). V callbacku volání Redis serveru ověříme, zda nám byli vráceny nějaké informace o uživateli a případně je vrátíme (jelikož námi používané ID u uživatele je klíč v Redis databázi, budeme jej ještě do záznamu muset před vrácením přidat, jelikož není součástí odpovědi z databáze).
 
-Pokud na plugin klikneme, objeví se nám jeho přehled, kde budeme moci později vidět uložená data, případně se zde můžeme přepnout do nastavení, kde si můžeme zobrazit informace o tomto Redis serveru. Ty mohou přijít vhod, pokud bychom chtěli přistupovat k tomuto serveru z aplikace běžící mimo naše Heroku. V případě, ale že máme nastavení Redis jako plugin naší Node.js aplikace, budeme mít tyto údaje dostupné skrze enviromentální proměnné.
+```javascript
+async function getUserById(id, callback){
+  await redisClient.hgetall(id, (err, obj) => {
+    if(!obj) return callback(null);
+    obj.id = id;
+    return callback(obj);
+  });
+}
+```
+
+Vzhledem k tomu, že jméno uživatele a ID uživatele se liší pouze v prefixu „user:“, tak nám při hledání skrze jméno uživatele stačí tento prefix přidat a zavolat funkci pro vyhledání skrze ID.
+
+Nyní přejdeme na úpravy v konfiguraci Passportu (passport-config.js). Zde voláme výše přepisované funkce, které ale nyní očekávají v parametru nejen hodnotu, dle které mají volat, ale také callback, tedy funkci, kterou mají vykonat. V podobě, v jaké máme kód Passportu napsán teď vlastně nejprve voláme funkci, danou hodnotu si uložíme do proměnné a dále s ní pracujeme. V logice samotné změny v podstatě dělat nemusíme, ale je nutné tuto logiku, která doteď pracovala s proměnnou, přeměnit na callback. Toho dosáhneme, pokud změněným funkcím přidáme do parametru arrow funkci, která bude mít v těle zmíněnou logiku. Musíme tedy kód změnit z následujícího.
+
+```javascript
+const user = getUserByName(name);
+if (user == null){
+    return done(null, false, { message: 'No user'} );
+}
+try {
+    if(await bcrypt.compare(password, user.password)){
+        return done(null, user);            
+    }else{
+        return done(null, false, { message: 'Wrong password'});
+    }
+} catch (error) {
+    return done(error);            
+}
+```
+
+Na kód následující, který je předělaný na callback.
+
+```javascript
+const user = getUserByName(name, async(user) => {
+    if (user == null){
+        return done(null, false, { message: 'No user'} );
+    }
+    try {
+        if(await bcrypt.compare(password, user.password)){
+            return done(null, user);            
+        }else{
+            return done(null, false, { message: 'Wrong password'});
+        }
+    } catch (error) {
+        return done(error);            
+    }
+});
+```
+
+Jak je názorně vidět, do parametru na začátku volané funkce se vložila arrow funkce, která obsahuje shodně pojmenovanou proměnnou, se kterou jsme dříve pracovali. Do arrow funkce jen přesuneme dříve použitou logiku a máme předěláno na callback funkci.
+
+Dále musíme upravit druhou funkci, kterou zde dostáváme v parametru a sice funkci getUserById(). Tu používáme u deserializace uživatele. Zde musíme prakticky pouze otočit logiku. Nyní voláme funkci done(), které v prvním parametru předáme nulovou hodnotu a v druhém parametru hodnotu z funkce pro nalezení uživatele skrze ID. Nyní k tomuto musíme přejít opačně. Nejprve si zavoláme o uživatele pomocí jeho ID a při volání právě díky callbacku určíme, co se má s hodnotou stát, jakmile ji dostaneme. Předělání této logiky by mělo vypadat nějak takto.
+
+```javascript
+getUserById(id, (user) => {
+    done(null, user);
+});
+```
+
+Nyní máme předěláno přihlášení uživatele skrze Passport. Dále musíme upravit samotnou registraci. Musíme tedy nahradit dosavadní ukládání uživatele do proměnné za uložení do Redis databáze. K tomuto použijeme funkci [hmset()](https://redis.io/commands/hmset), kde jako první parametr předáme ID uživatele (složenina z „user:“ a jména uživatele), respektive klíč k záznamu v databázi. Jako druhý parametr vložíme pole, ve kterém se střídají klíč a hodnota. To znamená, že jako první položku vložíme „name“, další bude přijaté jméno z registrace, následuje „password“ a konečně a zahashované heslo. Jako třetí parametr si můžeme přidat callback, který pokud nastane chyba, přesměruje uživatele opět na stránku registrací.
+
+```javascript
+redisClient.hmset('user:' + req.body.name, 
+ ['name', req.body.name, 'password', hashedPassword],
+ (err, reply) => {
+    if(err){
+        return res.redirect('/register');
+    }else{
+        return res.redirect('/login');
+    }
+});
+```
+
+Přechod na ukládání do Redis databáze máme prakticky hotový, zbývá pouze změnit výběr jména uživatele, které rozesíláme v socketu, pokud se uživatel připojí do místnosti (socket „join“), respektive způsob, jakým přiřazujeme do socketu uživatelské jméno. Díky tomu, že máme spojený Passport a naše sockety, můžeme se dostat k ID uživatele z našeho socketu. Vzhledem k tomu, že ID uživatele je složené u prefixu a samotného jména, můžeme si z tohoto ID vyparsovat pouze jméno, a to k socketu nastavit.
+
+```javascript
+// socket.username = users.find(user => user.id === socket.handshake.session.passport.user).name;
+socket.username = socket.handshake.session.passport.user.split(':')[1];
+```
+
+Přihlašování by již tedy mělo fungovat a data o uživatelích by se měla ukládat na náš Redis server. Pokud ovšem nepoužíváte lokální Redis server, s vysokou pravděpodobností narazíte při registraci uživatele na chybu „Error [ ERR_HTTP_HEADERS_SENT ]“. Jedná se o chybu v našem endpointu pro registraci. Tato chyba obecně nastává, pokud se snažíme odeslat více než jednu odpověď na stejný požadavek a obvykle se s ní setkáme u asynchronních funkcí. Pokud se podíváme na náš kód pro založení uživatele při registraci, při zamyšlení jak funguje náš Redis klient, tedy asynchronně a hodnoty vrací do callbacků, můžeme si všimnout, že zavoláme na našem klientu funkci hmset(). Ta je ovšem asynchronní a než nám databáze vrátí výsledek, server pokračuje ve vykonávání příkazů. Pokud není databáze „dostatečně rychlá“, pošle se uživateli odpověď s přesměrováním na stránku s přihlášením a uživatel tak dostal svou odpověď od serveru. Poté ovšem doběhne náš dotaz z databáze a kód se vrátí do callbacku naše volání u Redis klienta. Zde se ověří, zda se vyskytla nějaká chyba a dle výsledku uživateli odešle odpověď na přesměrování. Jedná se ovšem o druhou odpověď na tentýž dotaz, server vypíše chybu a ukončí se.
+
+```javascript
+app.post('/register', checkNotAuth, async (req,res) => {
+    try{
+        const hashedPassword = await bcrypt.hash(req.body.password, 5);
+        redisClient.hmset('user:' + req.body.name, 
+                ['name', req.body.name, 'password', hashedPassword],
+                (err, reply) => {
+                    if(err){
+                        return res.redirect('/register');
+                    }else{
+                        return res.redirect('/login');
+                    }
+        });
+        res.redirect('/login');
+    }catch{
+        res.redirect('/register');
+    }
+});
+```
+
+V našem případě se ale nejedná o žádnou složitou chybu, jelikož přesně víme, v jakém místě se odesílá nadbytečná odpověď. Stačí tedy odstranit řádek s přesměrováním na přihlašovací stránku, který není v těle zmíněného callbacku a je hotovo.
