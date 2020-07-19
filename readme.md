@@ -3,7 +3,7 @@ Naše současná podoba aplikace disponuje možností přihlášení. Uživatel 
 ## Zabezpečení přístupu do aplikace
 Aplikace jako taková by neměla být přístupná bez předchozího přihlášení. Potřebujeme tedy na všech cestách (kromě těch pro registraci a přihlášení) kontrolovat přihlášení uživatele, od kterého na server požadavek přijde. Na toto si vytvoříme dvě funkce, jedna bude kontrolovat, jestli je uživatel přihlášen, pokud ano, bude vše probíhat dále. Pokud ovšem vyjde, že přihlášen není, přesměrujeme ho na přihlašovací obrazovku. Druhá funkce bude dělat víceméně opak. Tu budeme používat na přihlašovacím a registračním okně, abychom uživatele rovnou z těchto částí přesměrovali do seznamu místností, pokud už je dávno přihlášen.
 
-Vzhledem k tomu, že využíváme knihovny Passport, je tato implementace poměrně snadná, jelikož si přihlášení můžeme při každém požadavku ověřit pomocí req.isAuthenticated(). Tato funkce nám jednoduše vrátí boolean, reflektující, zda je uživatel odesílající požadavek podle serveru přihlášen. Vytvoříme si tedy dvě výše popsané funkce.
+Vzhledem k tomu, že využíváme knihovny Passport, je tato implementace poměrně snadná, jelikož si přihlášení můžeme při každém požadavku ověřit pomocí req.isAuthenticated(). Tato funkce nám jednoduše vrátí hodnotu (true nebo false), reflektující, zda je uživatel odesílající požadavek podle serveru přihlášen. Vytvoříme si tedy dvě výše popsané funkce.
 
 ```javascript
 function checkAuth(req, res, next) {
@@ -20,21 +20,21 @@ function checkNotAuth(req, res, next) {
 }
 ```
 
-Na první pohled vypadají velmi podobně, jako naše arrow funkce v endpointech. S tím rozdílem (tedy kromě toho, že se jedná o běžný zápis funkce), že zde přibyl parametr **next**. Ta pro nás představuje funkci, kterou zavoláme, pokud budeme chtít pokračovat dále. V první funkci tedy pokud je uživatel přihlášen, v druhém případě pak naopak. První funkci tedy budeme chtít použít u endpointů, které mají být dostupné pouze přihlášeným uživatelům. Druhou funkci pak pro přesměrování přímo do seznamu místností, pokud by uživatel byl již přihlášen, ale ocitl se na přihlašovací obrazovce. Zakomponování těchto funkcí do jednotlivých endpointů je právě díky zmíněný funkce **next** velmi snadná. Stačí požadovanou funkci přidat každému endpointu do parametru, před arrow funkci, která se stará o jeho provedení. Například u zobrazení místností takto a obdobně přidáme požadované funkce k ostatním.
+Na první pohled vypadají velmi podobně, jako naše arrow funkce v endpointech. S tím rozdílem (tedy kromě toho, že se jedná o běžný zápis funkce), že zde přibyl parametr „next“. Ten pro nás představuje funkci, kterou zavoláme, pokud budeme chtít pokračovat dále. V první funkci tedy pokud je uživatel přihlášen, v druhém případě pak naopak. První funkci tedy budeme chtít použít u endpointů, které mají být dostupné pouze přihlášeným uživatelům. Druhou funkci pak pro přesměrování přímo do seznamu místností, pokud by uživatel byl již přihlášen, ale ocitl se na přihlašovací obrazovce. Zakomponování těchto funkcí do jednotlivých endpointů je právě díky zmíněný funkce „next“ velmi snadná. Stačí požadovanou funkci přidat každému endpointu do parametru, před arrow funkci, která se stará o jeho provedení. Například u zobrazení místností takto a obdobně přidáme požadované funkce k ostatním.
 
 ```javascript
 app.get("/", checkAuth, (req,res) => { . . . }
 ```
 
 ## Zobrazení jména u zprávy a při připojení do místnosti
-Mohlo by se zdát, že nyní zobrazení jména odesílatele bude jen otázkou přidání dalšího parametru u rozesílání daného socketu. Částečně je to pravda, ovšem nyní nastává jeden problém. Musíme se k dostat k danému jménu uživatele, které máme v naší session, z websocketů, které jsou od tohoto oddělené. Nedostaneme se k těmto datům tedy tak, jako při vyřizovaní klasického požadavku, odeslaného na endpoint. Musíme si tedy naši session propojit i se sockety. K tomu nám vypomůže knihovna ** express-socket.io-session**. Tu si tedy skrze npm nainstalujeme.
+Mohlo by se zdát, že nyní zobrazení jména odesílatele bude jen otázkou přidání dalšího parametru u rozesílání daného socketu. Částečně je to pravda, ovšem nyní nastává jeden problém. Musíme se dostat z těla zpracování websocketů k jménu daného uživatele, které máme uložené v naší session. Samotné požadavky websocketů jsou ale od těchto session oddělené (ačkoliv to tak v kódu nevypadá). Nedostaneme se k těmto datům tedy tak, jako při vyřizovaní klasického požadavku odeslaného na endpoint. Musíme si tedy naši session propojit i se sockety. K tomu nám vypomůže knihovna „express-socket.io-session“. Tu si tedy skrze npm nainstalujeme.
 
 ```bash
 npm i express-socket.io-session
 ```
 
 Nyní budeme muset pozměnit nastavení session na našem serveru, aby vše navzájem fungovalo.
-Nejprve si změníme pro usnadnění náš import **express-session**.
+Nejprve si změníme pro usnadnění náš import „express-session“.
 
 ```javascript
 const session = require('express-session');
@@ -61,13 +61,13 @@ Nyní si naimportujeme před chvíli nainstalovanou knihovnu pro sdílení sessi
 const sharedsession = require("express-socket.io-session");
 ```
 
-Vše je připraveno a zbývá pouze vše napojit na naše websockety. Respektive nastavit knihovně socket.io, aby použila sdílenou session, do které předáme naši hlavní **express-session**. Díky tomu budeme mít všechny údaje přístupné i při požadavcích skrze sockety.
+Vše je připraveno a zbývá pouze vše napojit na naše websockety. Respektive nastavit knihovně socket.io, aby použila sdílenou session, do které předáme naši hlavní „express-session“. Díky tomu budeme mít všechny údaje přístupné i při požadavcích skrze sockety.
 
 ```javascript
 io.use(sharedsession(session));
 ```
 
-Při připojení do místnosti odešle klient socket **join**. Právě zde budeme chtít k danému socketu nastavit jméno uživatele (které získáme ze sdílené session), které budeme využívat k zobrazení, kdo se připojil do místnosti, odesílatele a seznamu píšících uživatelů. Cesta k samotným údajům se může zdát poměrně zmatená. Skrze socket se k session dostaneme skrze socket.handshake.session. Odkud se potřebujeme dostat k session, kterou vytvořil Passport, tedy přidáme .passport a nakonec z této session chceme část dat o uživateli, kterou najdeme v části .user, kde máme uložené ID uživatele. Pomocí něj budeme hledat v našem seznamu uživatelů, podobně jako jsme to dělali v naší arrow funkci, která byla jako poslední parametr ve funkci initPassport(). Toto vše si jednoduše uložíme do našeho socketu, například pod klíčem **username**.
+Při připojení do místnosti odešle klient socket „join“. Právě zde budeme chtít k danému socketu nastavit jméno uživatele (které získáme ze sdílené session), které budeme využívat k zobrazení, kdo se připojil do místnosti, odesílatele a seznamu píšících uživatelů. Cesta k samotným údajům se může zdát poměrně zmatená. Skrze socket se k session dostaneme pomocí socket.handshake.session. Odkud se potřebujeme dostat k session, kterou vytvořil Passport, tedy přidáme .passport a nakonec z této session chceme část dat o uživateli, kterou najdeme v části .user, kde máme uložené ID uživatele. Pomocí něj budeme hledat v našem seznamu uživatelů, podobně jako jsme to dělali v naší arrow funkci, která byla jako poslední parametr ve funkci initPassport(). Toto vše si jednoduše uložíme do našeho socketu, například pod klíčem „username“.
 
 ```javascript
 socket.on("join", (room) => {
@@ -78,7 +78,7 @@ socket.on("join", (room) => {
 });
 ```
 
-V tuto chvíli, když se uživatel připojí do místnosti, najde se podle ID jeho jméno v seznamu uživatelů a přiřadí se k jeho socketu. Dále budeme o této skutečnosti informovat i ostatní uživatele v místnosti. Rozešleme tedy socket (například **joined**) všem v místnosti, v němž pošleme jméno onoho uživatele.
+V tuto chvíli, když se uživatel připojí do místnosti, najde se podle ID jeho jméno v seznamu uživatelů a přiřadí se k jeho socketu. Dále budeme o této skutečnosti informovat i ostatní uživatele v místnosti. Rozešleme tedy socket (například „joined“) všem v místnosti, v němž pošleme jméno onoho uživatele.
 
 ```javascript
 socket.join(room, e => {
@@ -87,7 +87,7 @@ socket.join(room, e => {
 });
 ```
 
-Než se pustíme do reakce na tento socket na straně klienta, přidáme si nově získané jméno uživatele k zprávě, kterou rozesíláme pomocí socketů.
+Než se pustíme do reakce na tento socket na straně klienta, přidáme si nově získané jméno uživatele ke zprávě, kterou rozesíláme pomocí socketů.
 
 ```javascript
 socket.on("send-chat-message", (msg, room) => {
@@ -95,7 +95,7 @@ socket.on("send-chat-message", (msg, room) => {
 });
 ```
 
-Na zobrazení odesílatele na straně klienta máme vše připraveno, pouze využijeme druhý, dosud nepoužitý, parametr pro reakci na socket **chat-message** (soubor chatroom.js). Druhý parametr ve funkci appendMsg() nahradíme za parametr **from**.
+Na zobrazení odesílatele na straně klienta máme vše připraveno, pouze využijeme druhý, dosud nepoužitý, parametr pro reakci na socket „chat-message“ (soubor chatroom.js). Druhý parametr ve funkci appendMsg() nahradíme za parametr „from“.
 
 ```javascript
 socket.on("chat-message", (msg, from) => {
@@ -103,10 +103,9 @@ socket.on("chat-message", (msg, from) => {
 });
 ```
 
-Co se týče zobrazení, že se uživatel připojil do místnosti, musíme zareagovat na dříve naimplementovaný socket **joined**. Zde v parametru dostaneme jméno uživatele. Nebudeme řešit implementaci zobrazení nějaké speciální hlášky a využijeme tedy naši funkci pro vykreslení zpráv 
+Co se týče zobrazení informace, že se uživatel připojil do místnosti, musíme zareagovat na dříve naimplementovaný socket „joined“. Zde v parametru dostaneme jméno uživatele. Nebudeme řešit implementaci zobrazení nějaké speciální hlášky a využijeme tedy naši funkci pro vykreslení zpráv appendMsg(), kde si místo předání zprávy napíšeme informační hlášku a jako odesílatele nastavíme například „Info“.
 
 ```javascript
-appendMsg(), kde si místo předání zprávy napíšeme informační hlášku a jako odesílatele nastavíme například **Info**.
 socket.on("joined", (user) => {
   appendMsg(user + " has joined a room!", "Info", true);
 });
@@ -115,7 +114,7 @@ socket.on("joined", (user) => {
 ## Seznam právě píšících uživatelů
 Implementace této funkčnosti se dá zvládnout poměrně snadno. V principu musíme zachytávat událost, kdy má uživatel označené pole pro psaní zprávy a stiskne nějakou klávesu. Dále na základě obsahu tohoto pole určíme, jestli píše (něco je vyplněné), případně psát přestal, a odešleme websocket s touto informací na server. Server bude mít proměnou, ve které bude uchovávat seznam uživatelů, u kterých eviduje, že píší. Po přijetí socketu vyhodnotí, zda uživatel píše, nebo pole právě vymazal, dle toho upraví seznam píšících uživatelů a dále už jen zbývá uživatelům v dané místnosti rozeslat websocket s tímto seznamem.
 
-Podobně jako máme event pro odeslání formuláře, odchytíme událost pro stisknutí klávesy (použijeme keyup, aby se neodesílali sockety dokola při držení klávesy). V tomto kódu si dále vytvoříme proměnou, kde vyhodnotíme obsah tohoto pole. Nebudeme přímo odesílat obsah, ale pouze **true**, pokud něco obsahuje, případně **false**, pokud je pole prázdné. Následně jen odešleme websocket na server pomocí socket.emit(). Jako cíl můžeme vybrat například **typing**, dále odešleme místnost, ve které se uživatel nachází a naší proměnou reprezentující, zda uživatel píše.
+Podobně jako máme event pro odeslání formuláře, odchytíme [událost pro stisknutí klávesy](https://www.w3schools.com/js/js_htmldom_eventlistener.asp). Použijeme „keyup“, aby se neodesílali sockety dokola při držení klávesy. V tomto kódu si dále vytvoříme proměnou, kde vyhodnotíme obsah tohoto pole. Nebudeme přímo odesílat obsah, ale pouze „true“, pokud něco obsahuje, případně „false“, pokud je pole prázdné. Následně jen odešleme websocket na server pomocí socket.emit(). Jako cíl můžeme vybrat například „typing“, dále odešleme místnost, ve které se uživatel nachází a naší proměnou reprezentující, zda uživatel píše.
 
 ```javascript
 msgInput.addEventListener("keyup", e => {
@@ -124,7 +123,7 @@ msgInput.addEventListener("keyup", e => {
 });
 ```
 
-Než se pustíme do implementace funkce, která bude na tento socket reagovat na straně serveru, na klientovi si ještě připravíme kód, který bude reagovat na příchozí socket se seznamem píšících uživatelů. Tento socket může být například **users-typing**, ve kterém budeme očekávat jeden argument a tím bude pole obsahující seznam píšících uživatelů. Při obdržení socketu budeme pouze volat funkci uvedenou níže, kterou si vložíme do kódu. Tato funkce více méně jen na základě příchozích hodnot mění, zda má být pole píšících uživatelů viditelné a jak se mají jména zobrazit.
+Než se pustíme do implementace funkce, která bude na tento socket reagovat na straně serveru, na klientovi si ještě připravíme kód, který bude reagovat na příchozí socket se seznamem píšících uživatelů. Tento socket může být například „users-typing“, ve kterém budeme očekávat jeden argument a tím bude pole obsahující seznam píšících uživatelů. Při obdržení socketu budeme pouze volat funkci uvedenou níže, kterou si vložíme do kódu. Tato funkce více méně jen na základě příchozích hodnot mění, zda má být pole píšících uživatelů viditelné a jak se mají jména zobrazit.
 
 ```javascript
 socket.on("users-typing", typing => {
@@ -148,7 +147,7 @@ function showTyping(typing) {
 
 Tímto jsme prakticky vyřešili stranu klienta (prvek pro zobrazení píšících uživatelů je již součástí šablony – chatroom.ejs).
 
-Z toho, co jsme právě naimplementovali vyplívá i co musíme udělat na straně serveru. Tedy být schopni zareagovat na socket **typing**, na základě něj provést výše popsané úkony a rozeslat socket **users-typing**. Toto budeme implementovat do těla funkce io.on("connection".. stejně, jako ostatní reakce na příchozí sockety. U příchozího socketu **typing** si z klienta odesíláme dvě hodnoty – místnost, ve které je uživatel a informaci, zda uživatel píše. Odsud tedy budeme dále odesílat zpět socket se seznamem uživatelů. 
+Z toho, co jsme právě naimplementovali vyplívá i co musíme udělat na straně serveru. Tedy být schopni zareagovat na socket „typing“, na základě něj provést výše popsané úkony a rozeslat socket „users-typing“. Toto budeme implementovat do těla funkce io.on("connection".. stejně, jako ostatní reakce na příchozí sockety. U příchozího socketu „typing“ si z klienta odesíláme dvě hodnoty – místnost, ve které je uživatel a informaci, zda uživatel píše. Odsud tedy budeme dále odesílat zpět socket se seznamem uživatelů. 
 
 ```javascript
 socket.on("typing", (room, typing) => {
@@ -156,7 +155,7 @@ socket.on("typing", (room, typing) => {
 });
 ```
 
-Máme připravené sockety, chybí nám ovšem nyní odesílaná proměnná **typingUsers**. Vytvoříme si tedy tuto proměnou s tímto názvem stejně, jako máme proměnou **rooms** pro místnosti nebo **users** pro registrované uživatele. Logika celé funkce bude poměrně snadná. Nejprve zkontrolujeme, zda v ní již daný uživatel není. Následně pokud v našem seznamu uživatel není a dle příchozí hodnoty uživatel píše, přidáme jej do naší proměnné (jelikož se jedná o pole, použijeme funkci .push()). Pokud bychom zjistili přesný opak, tedy že uživatel nepíše a v seznamu se nachází, musíme jej pomocí .splice() ze seznamu odebrat. Pokud se nepotvrdí ani jedna z podmínek, nemusíme seznam nijak upravovat a rovnou odešleme socket se seznamem píšících uživatelů.
+Máme připravené sockety, chybí nám ovšem nyní odesílaná proměnná „typingUsers“. Vytvoříme si tedy tuto proměnou s tímto názvem stejně, jako máme proměnou „rooms“ pro místnosti nebo „users“ pro registrované uživatele. Logika celé funkce bude poměrně snadná. Nejprve zkontrolujeme, zda v ní již daný uživatel není. Následně pokud v našem seznamu uživatel není a dle příchozí hodnoty uživatel píše, přidáme jej do naší proměnné (jelikož se jedná o pole, použijeme funkci .push()). Pokud bychom zjistili přesný opak, tedy že uživatel nepíše a v seznamu se nachází, musíme jej pomocí funkce .splice() ze seznamu odebrat. Pokud se nepotvrdí ani jedna z podmínek, nemusíme seznam nijak upravovat a rovnou odešleme socket se seznamem píšících uživatelů.
 
 ```javascript
 socket.on("typing", (room, typing) => {
@@ -170,8 +169,26 @@ socket.on("typing", (room, typing) => {
 });
 ```
 
+Takto se jedná o funkční řešení, ovšem obsahuje jednu zásadní chybu, kterou bychom nemuseli zaznamenat při testování, jelikož nebudeme mít větší množství uživatelů ve více místnostech píšících naráz. Toto řešení totiž nedělí právě píšící uživatele dle místností, ve kterých se právě nachází. Pokud by tedy psal uživatel A v místnosti X a současně by začal psát uživatel B v místnosti Y, s tímto řešením by se jim o tomto zobrazila informace, ačkoliv jsou v rozdílných místnostech. Teoreticky je informace pravdivá, ale uživatele zajímá, kdo píše v jeho aktuální místnosti, ne globálně. Nepoužijeme tedy pouze klasické pole, ale vícedimenzionální, kde nejprve jako první klíč použijeme název dané místnosti a pod tímto klíčem budeme ukládat pole píšících uživatelů. Na všech místech, kde tedy používáme naše pole musíme doplnit použití pod klíčem příchozí místnosti. Také musíme ovšem ověřit, zda již v naší proměnné „typingUsers“ existuje prvek s klíčem naší místnosti, jelikož pokud by neexistoval (například se jedná o vůbec prvního píšícího uživatele v místnosti), nemohli bychom použít funkci .push(), jelikož typingUsers[room] by nám program vracel jako „undefined“. Pokud tedy nebude prvek definován, musíme do něj přiřadit pole obsahující jméno uživatele klasickým přiřazením.
+ 
+```javascript
+socket.on("typing", (room, typing) => {
+    if(typingUsers[room]){
+        let index = typingUsers[room].indexOf(socket.username);
+        if (typing && index < 0) {
+            typingUsers[room].push(socket.username);
+        } else if (!typing && index > -1) {
+            typingUsers[room].splice(index, 1);
+        }
+    }else{
+        typingUsers[room] = [socket.username];
+    }
+    socket.to(room).broadcast.emit("users-typing", typingUsers[room]);
+});
+```
+
 ## Zobrazení informačních hlášek u autorizace
-Informační hlášky o chybném přihlášení jsme si již nadefinovali v minulé lekci. Také jsme si naimportovali knihovnu **express-flash**, která se o zobrazení těchto hlášek stará. Vzhledem k tomu, že využíváme template soubory express serveru (soubory s příponou .ejs), zobrazení těchto hlášek je záležitostí několika řádků. Server totiž před vykreslením stránky, respektive před vrácením html kódu, vyhodnotí kód, který je ohraničen <% %>. Informační zprávu máme i napojenou a zobrazení pro nás tedy v tuto chvíli znamená doplnění tří řádku do souboru s formulářem pro přihlášení (login.ejs).
+Informační hlášky o chybném přihlášení jsme si již nadefinovali v minulé lekci. Také jsme si naimportovali knihovnu „express-flash“, která se o zobrazení těchto hlášek stará. Vzhledem k tomu, že využíváme šablony express serveru (soubory s příponou „.ejs“), zobrazení těchto hlášek je záležitostí několika řádků. Server totiž před vykreslením stránky, respektive před vrácením html kódu, vyhodnotí kód, který je ohraničen <% %>. Informační zprávu máme i napojenou a zobrazení pro nás tedy v tuto chvíli znamená doplnění tří řádku do souboru s formulářem pro přihlášení (login.ejs).
 
 ```javascript
 <% if(messages.error) { %>
@@ -183,7 +200,7 @@ Tento text můžeme umístit na stránce kam budeme chtít, stejně tak jej vlo�
 
 ## Odhlášení uživatele
 Naše aplikace má na stránce se seznamem místností v pravém horním rohu ikonku, na kterou když klikneme, objeví se menu, kde je možnost odhlášení. Dosud jsme ovšem tuto možnost nenaimplementovali a je nutné ji dodělat.
-V souboru, kde toto menu najdeme (index.ejs) musíme nejprve nastavit cestu pro odhlášení. Najdeme tedy část kódu, kde se tlačítko na odhlášení nachází a nastavíme cestu například na **/logout**.
+V souboru, kde toto menu najdeme (index.ejs) musíme nejprve nastavit cestu pro odhlášení. Najdeme tedy část kódu, kde se tlačítko na odhlášení nachází a nastavíme cestu například na „/logout“.
 
 ```html
 <li><a href="/logout">Logout</a></li>
